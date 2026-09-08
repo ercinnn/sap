@@ -5,6 +5,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/supabase_client.dart';
 import '../../../core/theme/theme_providers.dart';
 import '../../../core/theme/ui_mode.dart';
+import '../../production_orders/presentation/production_orders_provider.dart';
 
 /// FAZ 1 doğrulama ekranı: mod/tema anahtarlarının ve Supabase bağlantısının
 /// çalıştığını gösterir. FAZ 4'te gerçek Hazıredim (Master-Detail) ekranıyla
@@ -57,15 +58,16 @@ class _DashboardPlaceholderScreenState
   Widget build(BuildContext context) {
     final uiMode = ref.watch(uiModeProvider);
     final themeMode = ref.watch(appThemeModeProvider);
+    final productionOrders = ref.watch(productionOrdersProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SAP PP - Tekstil Üretim Planlama (FAZ 1)'),
+        title: const Text('SAP PP - Tekstil Üretim Planlama (FAZ 1-3)'),
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -156,13 +158,39 @@ class _DashboardPlaceholderScreenState
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
-                        Text(_connectionStatus),
+                        SelectableText(_connectionStatus),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _isTesting ? null : _testConnection,
                           child: Text(
                             _isTesting ? 'Test ediliyor...' : 'Bağlantıyı Test Et',
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Üretim Siparişleri (FAZ 3, canlı)',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        productionOrders.when(
+                          data: (orders) => SelectableText(
+                            '${orders.length} sipariş bulundu (Realtime ile canlı).',
+                          ),
+                          loading: () => const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: LinearProgressIndicator(),
+                          ),
+                          error: (error, _) => SelectableText('Hata: $error'),
                         ),
                       ],
                     ),
