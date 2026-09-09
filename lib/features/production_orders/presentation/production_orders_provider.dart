@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/production_order_repository.dart';
 import '../domain/production_order.dart';
 import '../domain/production_order_status.dart';
+import 'selected_production_order_provider.dart';
 
 /// Supabase Realtime üzerinden üretim siparişlerindeki canlı saha
 /// güncellemelerini (durum değişiklikleri, yeni siparişler...) dinler.
@@ -32,3 +33,17 @@ final productionOrdersProvider =
     AsyncNotifierProvider<ProductionOrdersNotifier, List<ProductionOrder>>(
   ProductionOrdersNotifier.new,
 );
+
+/// Üst tabloda seçili olan üretim siparişinin (varsa) tam kaydı.
+final selectedProductionOrderProvider = FutureProvider<ProductionOrder?>((
+  ref,
+) async {
+  final selectedId = ref.watch(selectedProductionOrderIdProvider);
+  if (selectedId == null) return null;
+
+  final orders = await ref.watch(productionOrdersProvider.future);
+  for (final order in orders) {
+    if (order.id == selectedId) return order;
+  }
+  return null;
+});

@@ -27,4 +27,20 @@ enum ProductionOrderStatus {
       orElse: () => throw ArgumentError('Bilinmeyen status: $value'),
     );
   }
+
+  /// Ekranlarda gösterilen Türkçe etiket.
+  String get label {
+    switch (this) {
+      case ProductionOrderStatus.created:
+        return 'Oluşturuldu';
+      case ProductionOrderStatus.released:
+        return 'Serbest Bırakıldı';
+      case ProductionOrderStatus.inProcess:
+        return 'İşlemde';
+      case ProductionOrderStatus.completed:
+        return 'Tamamlandı';
+      case ProductionOrderStatus.closed:
+        return 'Kapatıldı';
+    }
+  }
 }
