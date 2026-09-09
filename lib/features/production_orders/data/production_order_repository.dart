@@ -35,7 +35,7 @@ class ProductionOrderRepository extends SupabaseRepository<ProductionOrder> {
     return client
         .from(table)
         .stream(primaryKey: ['id'])
-        .order('created_at')
+        .order('created_at', ascending: true)
         .map((rows) => rows.map(fromJson).toList());
   }
 }

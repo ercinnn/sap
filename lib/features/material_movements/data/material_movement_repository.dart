@@ -24,7 +24,7 @@ class MaterialMovementRepository extends SupabaseRepository<MaterialMovement> {
         .from(table)
         .select()
         .eq('production_order_id', productionOrderId)
-        .order('movement_date');
+        .order('movement_date', ascending: true);
     return rows.map(fromJson).toList();
   }
 

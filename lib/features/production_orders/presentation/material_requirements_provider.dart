@@ -24,6 +24,7 @@ final materialRequirementsProvider =
 /// zenginleştirilmiş satır.
 class MaterialRequirementRow {
   const MaterialRequirementRow({
+    required this.componentMaterialId,
     required this.componentMaterialNumber,
     required this.componentDescription,
     required this.unit,
@@ -31,6 +32,7 @@ class MaterialRequirementRow {
     required this.issuedQuantity,
   });
 
+  final String componentMaterialId;
   final String componentMaterialNumber;
   final String componentDescription;
   final String unit;
@@ -67,6 +69,7 @@ final materialRequirementRowsProvider =
     final required =
         order.orderQuantity * bom.quantity * (1 + bom.scrapPercentage / 100);
     return MaterialRequirementRow(
+      componentMaterialId: bom.componentMaterialId,
       componentMaterialNumber:
           component?.materialNumber ?? bom.componentMaterialId,
       componentDescription: component?.description ?? '-',

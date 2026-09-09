@@ -21,7 +21,7 @@ class RoutingRepository extends SupabaseRepository<Routing> {
         .from(table)
         .select()
         .eq('material_id', materialId)
-        .order('operation_sequence');
+        .order('operation_sequence', ascending: true);
     return rows.map(fromJson).toList();
   }
 }

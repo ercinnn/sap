@@ -25,7 +25,7 @@ class ProductionConfirmationRepository
         .from(table)
         .select()
         .eq('production_order_id', productionOrderId)
-        .order('operation_sequence');
+        .order('operation_sequence', ascending: true);
     return rows.map(fromJson).toList();
   }
 }

@@ -7,9 +7,13 @@ import 'package:pluto_grid/pluto_grid.dart';
 
 import '../../../core/theme/theme_providers.dart';
 import '../../../core/theme/ui_mode.dart';
+import '../../materials/presentation/materials_map_provider.dart';
+import '../../work_centers/presentation/work_centers_map_provider.dart';
 import 'material_requirements_provider.dart';
+import 'production_actions.dart';
 import 'production_order_rows_provider.dart';
 import 'production_orders_provider.dart';
+import 'selected_order_operations_provider.dart';
 import 'selected_production_order_provider.dart';
 
 /// FAZ 4: Hazıredim ekranı. Üst tablo (Üretim/Proses Siparişleri) ve seçili
@@ -78,6 +82,7 @@ class _ProductionReadinessScreenState
               'status': PlutoCell(
                 value: r.isFullyIssued ? 'Çıkışı Yapıldı' : 'Bekliyor',
               ),
+              'component_id': PlutoCell(value: r.componentMaterialId),
             },
           ),
         )
@@ -178,6 +183,42 @@ class _ProductionReadinessScreenState
             ? null
             : (context) => _StatusBadge(text: context.cell.value as String),
       ),
+      PlutoColumn(
+        title: 'İşlem',
+        field: 'component_id',
+        type: PlutoColumnType.text(),
+        width: 120,
+        enableSorting: false,
+        enableContextMenu: false,
+        enableFilterMenuItem: false,
+        enableEditingMode: false,
+        renderer: (rendererContext) {
+          final componentId = rendererContext.cell.value as String;
+          return TextButton(
+            onPressed: () {
+              final rows =
+                  ref.read(materialRequirementRowsProvider).value ??
+                  const <MaterialRequirementRow>[];
+              MaterialRequirementRow? row;
+              for (final r in rows) {
+                if (r.componentMaterialId == componentId) {
+                  row = r;
+                  break;
+                }
+              }
+              final orderId = ref.read(selectedProductionOrderIdProvider);
+              if (row == null || orderId == null) return;
+              showGoodsIssueDialog(
+                context: context,
+                ref: ref,
+                productionOrderId: orderId,
+                row: row,
+              );
+            },
+            child: const Text('261 Çıkış'),
+          );
+        },
+      ),
     ];
   }
 
@@ -232,6 +273,10 @@ class _ProductionReadinessScreenState
     final masterAsync = ref.watch(productionOrderRowsProvider);
     final detailAsync = ref.watch(materialRequirementRowsProvider);
     final selectedOrderAsync = ref.watch(selectedProductionOrderProvider);
+    final materialsMap = ref.watch(materialsMapProvider).value ?? const {};
+    final workCentersMap = ref.watch(workCentersMapProvider).value ?? const {};
+    final routingsAsync = ref.watch(selectedOrderRoutingsProvider);
+    final confirmationsAsync = ref.watch(selectedOrderConfirmationsProvider);
 
     ref.listen(productionOrderRowsProvider, (previous, next) {
       next.whenData((orders) => _syncRows(_masterManager, _masterRows(orders)));
@@ -277,6 +322,82 @@ class _ProductionReadinessScreenState
       error: (error, _) => Center(child: SelectableText('Hata: $error')),
     );
 
+    final selectedOrder = selectedOrderAsync.value;
+    final actionsBar = selectedOrder == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.move_to_inbox_outlined, size: 18),
+                  label: const Text('101 — Mamul Girişi'),
+                  onPressed: () {
+                    final material = materialsMap[selectedOrder.materialId];
+                    showGoodsReceiptDialog(
+                      context: context,
+                      ref: ref,
+                      productionOrderId: selectedOrder.id!,
+                      materialId: selectedOrder.materialId,
+                      materialDescription:
+                          material?.description ?? selectedOrder.materialId,
+                      orderQuantity: selectedOrder.orderQuantity,
+                      unit: material?.baseUnit ?? 'PC',
+                    );
+                  },
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.fact_check_outlined, size: 18),
+                  label: const Text('Operasyon Teyidi Ekle'),
+                  onPressed: () {
+                    showOperationConfirmationDialog(
+                      context: context,
+                      ref: ref,
+                      productionOrderId: selectedOrder.id!,
+                      routings: routingsAsync.value ?? const [],
+                      workCenters: workCentersMap,
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+
+    final confirmationsPanel = confirmationsAsync.maybeWhen(
+      data: (confirmations) => confirmations.isEmpty
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Operasyon Teyitleri',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  ...confirmations.map(
+                    (c) => Text(
+                      'OP${c.operationSequence}: '
+                      '${c.confirmedQuantity.toStringAsFixed(0)} adet, '
+                      '${c.scrapQuantity.toStringAsFixed(0)} fire'
+                      '${c.confirmedBy != null ? ' — ${c.confirmedBy}' : ''}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      orElse: () => const SizedBox.shrink(),
+    );
+
+    final detailFooter = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [actionsBar, confirmationsPanel],
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hazıredim — Malzeme İhtiyaç Kontrolü'),
@@ -289,8 +410,18 @@ class _ProductionReadinessScreenState
         ],
       ),
       body: uiMode == UiMode.classic
-          ? _ClassicLayout(masterGrid: masterGrid, detailTitle: detailTitle, detailGrid: detailGrid)
-          : _ModernLayout(masterGrid: masterGrid, detailTitle: detailTitle, detailGrid: detailGrid),
+          ? _ClassicLayout(
+              masterGrid: masterGrid,
+              detailTitle: detailTitle,
+              detailGrid: detailGrid,
+              detailFooter: detailFooter,
+            )
+          : _ModernLayout(
+              masterGrid: masterGrid,
+              detailTitle: detailTitle,
+              detailGrid: detailGrid,
+              detailFooter: detailFooter,
+            ),
     );
   }
 }
@@ -300,11 +431,13 @@ class _ClassicLayout extends StatelessWidget {
     required this.masterGrid,
     required this.detailTitle,
     required this.detailGrid,
+    required this.detailFooter,
   });
 
   final Widget masterGrid;
   final String detailTitle;
   final Widget detailGrid;
+  final Widget detailFooter;
 
   @override
   Widget build(BuildContext context) {
@@ -315,6 +448,10 @@ class _ClassicLayout extends StatelessWidget {
         const Divider(height: 1, color: Color(0xFF919B9C)),
         _SectionLabel(text: detailTitle, classic: true),
         Expanded(flex: 2, child: detailGrid),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: detailFooter,
+        ),
       ],
     );
   }
@@ -325,11 +462,13 @@ class _ModernLayout extends StatelessWidget {
     required this.masterGrid,
     required this.detailTitle,
     required this.detailGrid,
+    required this.detailFooter,
   });
 
   final Widget masterGrid;
   final String detailTitle;
   final Widget detailGrid;
+  final Widget detailFooter;
 
   @override
   Widget build(BuildContext context) {
@@ -351,6 +490,7 @@ class _ModernLayout extends StatelessWidget {
             flex: 2,
             child: Card(child: Padding(padding: const EdgeInsets.all(8), child: detailGrid)),
           ),
+          detailFooter,
         ],
       ),
     );
